@@ -36,7 +36,7 @@ jobs:
 
       - name: Lager Github Versjon
         uses: softprops/action-gh-release@v1
-         with:
+        with:
           tag_name: v.0.1.${{ github.run_number}}
           name: Build v.0.1.${{ github.run_number }}
           files: build/Android/VR_Simulator_Build.apk
