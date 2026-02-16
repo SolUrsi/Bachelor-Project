@@ -7,7 +7,7 @@ Dette repoet er en samling av kode utviklet som et "proof of concept" for Trafte
 Prosjektet er utviklet i [Unity](https://unity.com/) for Meta plattformens VR briller, da spesifikt [Meta Quest 3](https://www.meta.com/no/quest/quest-3/).
 
 ## Strategi 📊
-Prosjektet totalt utvikles av fire utviklere, hvorav tre av dem er Dataingeniør studenter som er tilsatt sine egne "origin branches". Hver tilsatte gren bygger opp mot en `dev` gren som brukes for å løse konflikter og klargjøre sammenfelte oppdateringer for å dyttes ut på `main`. Tankegangen er da;
+Prosjektet totalt utvikles av fire utviklere, hvorav tre av dem er Dataingeniør studenter som er tilsatt sine egne "origin branches" og en av dem en AI student som jobber med en virtuell AI assistent for simulatoren. Hver tilsatte gren bygger opp mot en `dev` gren som brukes for å løse konflikter og klargjøre sammenfelte oppdateringer for å dyttes ut på `main`. Tankegangen er da;
 
 1. Utvikler har utviklet og testet sin kode lokalt på VR briller.
 2. Utvikler "pusher" sin kode opp på sin "origin branch".
