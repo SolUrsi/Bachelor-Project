@@ -12,7 +12,7 @@ Prosjektet totalt utvikles av fire utviklere, hvorav tre av dem er Dataingeniør
 1. Utvikler har utviklet og testet sin kode lokalt på VR briller.
 2. Utvikler "pusher" sin kode opp på sin "origin branch".
 3. Utvikler "merger" sin "origin branch" med `dev` og bruker auto konflikt løsning for å løse eventuelle konflikter i koden.
-4. Repo administrator, ved Scrum møte, "merger" `dev` med `main` slik at utvilere kan kjøre gjennom total simulasjonen og teste.
+4. Repo administrator, ved Scrum møte, "merger" `dev` med `main` slik at utviklere kan kjøre gjennom total simulasjonen og teste i felles.
 5. `main` versjoneres og er klar for opplastning som en `.apk` på den aktuelle VR brillen.
 
 ## Mål 🏁
