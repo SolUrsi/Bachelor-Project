@@ -20,7 +20,6 @@ jobs:
           
       - name: Frigjør diskplass (Windows)
         run: |
-          # Sletter unødvendige verktøy for å få ca 5-10GB ekstra
           Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\CodeQL" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Ruby" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Go" -ErrorAction SilentlyContinue
@@ -37,7 +36,6 @@ jobs:
       - name: Fikser Unity License
         shell: powershell
         env:
-          # Sender secrets.UNITY_LICENSE som en variabel i stedet for å injisere den i koden
           RAW_LICENSE: ${{ secrets.UNITY_LICENSE }}
         run: |
           $dir = "C:\ProgramData\Unity\config"
@@ -45,7 +43,6 @@ jobs:
               New-Item -ItemType Directory -Force -Path $dir
           }
           
-          # Henter innholdet fra miljøvariabelen og lagrer som fil
           $licenseContent = $env:RAW_LICENSE
           if ([string]::IsNullOrWhiteSpace($licenseContent)) { 
               throw "UNITY_LICENSE er tom! Sjekk GitHub Secrets." 
@@ -59,7 +56,6 @@ jobs:
         env:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          # UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
         with:
           targetPlatform: Android
           androidExportType: androidPackage
