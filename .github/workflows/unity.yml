@@ -1,34 +1,48 @@
-name: Build and Release VR APK
+name: VR APK Build
 
 on:
   push:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Unity Build (Android)
-    runs-on: ubuntu-latest
+    runs-on: windows-latest  
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           lfs: true
 
-      - name: Cache Library mappe
+      - name: Cacher Library
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-Android
+          key: Library-Android-Windows
           restore-keys: |
-            Library-
+            Library-Android-
 
-      - name: Bygg Unity Prosjekt
+      # Prøve å fjerne Linux formatering på lisens fil
+      - name: Fikser Unity License
+        run: |
+          $licensePath = "C:\ProgramData\Unity\config"
+          if (!(Test-Path $licensePath)) {
+              New-Item -ItemType Directory -Force -Path $licensePath
+          }
+          # Setter lisensen direkte inn i en .ulf fil
+          Set-Content -Path "$licensePath\ulf.xml" -Value "${{ secrets.UNITY_LICENSE }}" -Encoding Ascii
+        shell: powershell
+
+      - name: Bygger Unity Prosjekt
         uses: game-ci/unity-builder@v4
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          # Sender ikke Unity License som env her, allerede lagd i steget over
         with:
           targetPlatform: Android
           androidExportType: androidPackage
@@ -36,10 +50,11 @@ jobs:
 
       - name: Lager Github Versjon
         uses: softprops/action-gh-release@v1
+        if: success()
         with:
-          tag_name: v.0.1.${{ github.run_number}}
-          name: Build v.0.1.${{ github.run_number }}
+          tag_name: v0.1.${{ github.run_number }}
+          name: Build v0.1.${{ github.run_number }}
           files: build/Android/VR_Simulator_Build.apk
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              
