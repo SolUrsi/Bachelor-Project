@@ -11,51 +11,26 @@ permissions:
 jobs:
   build:
     name: Unity Build (Android)
-    runs-on: windows-latest  
+    runs-on: ubuntu-latest 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Frigjør diskplass (Windows)
-        run: |
-          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\CodeQL" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Ruby" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Go" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Python" -ErrorAction SilentlyContinue
-        shell: powershell
-
       - name: Cacher Library
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-Android-Windows-${{ hashFiles('Packages/manifest.json') }}
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: |
-            Library-Android-Windows-
-
-      - name: Fikser Unity License
-        shell: powershell
-        env:
-          RAW_LICENSE: ${{ secrets.UNITY_LICENSE }}
-        run: |
-          $dir = "C:\ProgramData\Unity\config"
-          if (!(Test-Path $dir)) {
-              New-Item -ItemType Directory -Force -Path $dir
-          }
-          $licenseContent = $env:RAW_LICENSE
-          if ([string]::IsNullOrWhiteSpace($licenseContent)) { 
-              throw "UNITY_LICENSE er tom! Sjekk GitHub Secrets." 
-          }
-          $licenseContent | Out-File -FilePath "$dir\ulf.xml" -Encoding ascii
-          Write-Host "Lisensfil er skrevet til $dir\ulf.xml"
-
+            Library-
+            
       - name: Bygger Unity Prosjekt
         uses: game-ci/unity-builder@v4
         env:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          # Denne må være her for at Actionen skal godta å starte!
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
         with:
           targetPlatform: Android
