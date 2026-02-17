@@ -1,0 +1,45 @@
+name: Build and Release VR APK
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Unity Build (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Library mappe
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-Android
+          restore-keys: |
+            Library-
+
+      - name: Bygg Unity Prosjekt
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          androidExportType: androidPackage
+          buildname: VR_Simulator_Build
+
+      - name: Lager Github Versjon
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v.0.1.${{ github.run_number}}
+          name: Build v.0.1.${{ github.run_number }}
+          files: build/Android/VR_Simulator_Build.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              
