@@ -17,6 +17,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+          
+      - name: Frigjør diskplass (Windows)
+        run: |
+          # Sletter unødvendige verktøy for å få ca 5-10GB ekstra
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\CodeQL" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Ruby" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Go" -ErrorAction SilentlyContinue
+        shell: powershell
 
       - name: Cacher Library
         uses: actions/cache@v3
@@ -26,11 +34,25 @@ jobs:
           restore-keys: |
             Library-Android-
 
-      - name: Skriv lisens til disk (Påkrevd for Windows)
+      - name: Fikser Unity License
         shell: powershell
+        env:
+          # Sender secrets.UNITY_LICENSE som en variabel i stedet for å injisere den i koden
+          RAW_LICENSE: ${{ secrets.UNITY_LICENSE }}
         run: |
-          New-Item -ItemType Directory -Force -Path "C:\ProgramData\Unity\config"
-          "${{ secrets.UNITY_LICENSE }}" | Out-File -FilePath "C:\ProgramData\Unity\config\ulf.xml" -Encoding ascii
+          $dir = "C:\ProgramData\Unity\config"
+          if (!(Test-Path $dir)) {
+              New-Item -ItemType Directory -Force -Path $dir
+          }
+          
+          # Henter innholdet fra miljøvariabelen og lagrer som fil
+          $licenseContent = $env:RAW_LICENSE
+          if ([string]::IsNullOrWhiteSpace($licenseContent)) { 
+              throw "UNITY_LICENSE er tom! Sjekk GitHub Secrets." 
+          }
+          
+          $licenseContent | Out-File -FilePath "$dir\ulf.xml" -Encoding ascii
+          Write-Host "Lisensfil er skrevet til $dir\ulf.xml"
 
       - name: Bygger Unity Prosjekt
         uses: game-ci/unity-builder@v4
