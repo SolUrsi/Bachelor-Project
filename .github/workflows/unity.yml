@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest  
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -26,23 +26,18 @@ jobs:
           restore-keys: |
             Library-Android-
 
-      # Prøve å fjerne Linux formatering på lisens fil
-      - name: Fikser Unity License
-        run: |
-          $licensePath = "C:\ProgramData\Unity\config"
-          if (!(Test-Path $licensePath)) {
-              New-Item -ItemType Directory -Force -Path $licensePath
-          }
-          # Setter lisensen direkte inn i en .ulf fil
-          Set-Content -Path "$licensePath\ulf.xml" -Value "${{ secrets.UNITY_LICENSE }}" -Encoding Ascii
+      - name: Skriv lisens til disk (Påkrevd for Windows)
         shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "C:\ProgramData\Unity\config"
+          "${{ secrets.UNITY_LICENSE }}" | Out-File -FilePath "C:\ProgramData\Unity\config\ulf.xml" -Encoding ascii
 
       - name: Bygger Unity Prosjekt
         uses: game-ci/unity-builder@v4
         env:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          # Sender ikke Unity License som env her, allerede lagd i steget over
+          # UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
         with:
           targetPlatform: Android
           androidExportType: androidPackage
