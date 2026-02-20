@@ -1,7 +1,7 @@
 # Traftec VR Simulator 🛠️⚡
 
 ## Proof of concept 📑
-Dette repoet er en samling av kode utviklet som et "proof of concept" for Traftec's VR Simulator som en del av IKT302-G 26V Bacheloroppgave for Dataingeniør på UiA Grimstad. Hensikten med prosjektet er å kunne bevise ovenfor Traftec at VR kan bidra med opplæring av deres lærlinger og montører på interne HMS rutiner og samtidig la dem "arbeide" under spenning og arbeidsforhold uten ellers eksponering for fare eller støt. Om dette prosjektet faller i smak vil Traftec videreutvikle konseptet for eget bruk. 
+Dette repoet er en samling av kode utviklet som et "proof-of-concept" for Traftec's VR Simulator som en del av IKT302-G 26V Bacheloroppgave for Dataingeniør på UiA Grimstad. Hensikten med prosjektet er å kunne bevise ovenfor Traftec at VR kan bidra med opplæring av deres lærlinger og montører på interne HMS rutiner og samtidig la dem "arbeide" under spenning og arbeidsforhold uten ellers eksponering for fare eller støt. Om dette prosjektet faller i smak vil Traftec videreutvikle konseptet for eget bruk. 
 
 ## Rammeverk 🖥️
 Prosjektet er utviklet i [Unity](https://unity.com/) for Meta plattformens VR briller, da spesifikt [Meta Quest 3](https://www.meta.com/no/quest/quest-3/).
