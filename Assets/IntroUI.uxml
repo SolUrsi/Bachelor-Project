@@ -1,0 +1,4 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Button text="Case" style="height: 230px; width: 342px; -unity-text-align: middle-center; white-space: pre; font-size: 30px; -unity-font-style: bold;"/>
+    <ui:Button text="Tutorial" style="height: 230px; width: 342px; font-size: 30px; -unity-font-style: bold;"/>
+</ui:UXML>
