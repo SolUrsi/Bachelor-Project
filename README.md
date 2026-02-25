@@ -15,5 +15,9 @@ Prosjektet totalt utvikles av fire utviklere, hvorav tre av dem er Dataingeniør
 4. Repo administrator, ved Scrum møte, "merger" `dev` med `main` slik at utviklere kan kjøre gjennom total simulasjonen og teste i felles.
 5. `main` versjoneres og er klar for opplastning som en `.apk` på den aktuelle VR brillen.
 
+## Beskrivelse av Simulator
+
+--- Masse beskrivelse, steg-for-steg over hvordan simulatoren spilles gjennom ---
+
 ## Mål 🏁
 Når VR simulatoren er ferdig utviklet skal den brukes for å måle læringsoppnåelse hos lærlinger hvor igjen den aktuelle statistikken skal fremvises slik at Traftec kan ta en beslutning på om prosjektet er verd å investere mer tid og ressurser i. Disse resultatene vil bli tilgjengeligjort som en del av bachelor oppgaven. 
