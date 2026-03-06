@@ -1,4 +1,8 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <ui:Button text="Case" style="height: 230px; width: 342px; -unity-text-align: middle-center; white-space: pre; font-size: 30px; -unity-font-style: bold;"/>
-    <ui:Button text="Tutorial" style="height: 230px; width: 342px; font-size: 30px; -unity-font-style: bold;"/>
+    <Style src="project://database/Assets/buttonstyle.uss?fileID=7433441132597879392&amp;guid=eb37f3a471500fb488e9e486b38290d6&amp;type=3#buttonstyle"/>
+    <ui:Label text="Traftec Simulator" style="font-size: 43px; -unity-text-align: upper-center;"/>
+    <ui:VisualElement style="flex-grow: 1; justify-content: space-evenly; margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;">
+        <ui:Button text="Case" name="Case" class="buttonstyle" style="height: 96px; width: 346px; font-size: 43px;"/>
+        <ui:Button text="Tutorial" name="Tutorial" class="buttonstyle" style="height: 96px; width: 346px; font-size: 43px;"/>
+    </ui:VisualElement>
 </ui:UXML>
