@@ -1,7 +1,4 @@
 // PÅKREVD: MQTTnet.dll i Assets/Plugins/
-// Last ned fra https://www.nuget.org/packages/MQTTnet (v4.x):
-//   1. Trykk "Download package", rename .nupkg til .zip, pakk ut
-//   2. Kopier lib/netstandard2.0/MQTTnet.dll til Assets/Plugins/MQTTnet.dll
 // Meta Quest på device: sett brokerHost til PC-ens lokale IP (f.eks. 192.168.x.x)
 // Unity Editor: localhost fungerer direkte
 
@@ -26,7 +23,7 @@ public class MqttService : MonoBehaviour
     public static MqttService Instance { get; private set; }
 
     [Header("Broker")]
-    [SerializeField] private string brokerHost = "localhost";
+    [SerializeField] private string brokerHost = "157.245.79.217";
     [SerializeField] private int    brokerPort  = 1883;
     [SerializeField] private string clientId    = "traftec-vr";
 
