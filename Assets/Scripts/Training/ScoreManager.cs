@@ -31,17 +31,19 @@ public class ScoreManager : MonoBehaviour
 
     public void DeductPoints(int amount, string reason, string objectId = null)
     {
-        int delta = -Mathf.Abs(amount);
-        totalScore += delta;
+        int before = totalScore;
+        totalScore += -Mathf.Abs(amount);
+        totalScore = Mathf.Max(totalScore, 0);
+        int actualDelta = totalScore - before; // 0 hvis score allerede var 0
 
         #if UNITY_EDITOR
-        Debug.Log($"[Score] {delta} ({reason}) Total={totalScore}");
+        Debug.Log($"[Score] {actualDelta} ({reason}) Total={totalScore}");
         #endif
 
         if (_logger != null)
-            _logger.LogPointsChanged(delta, reason, objectId, totalScore);
+            _logger.LogPointsChanged(actualDelta, reason, objectId, totalScore);
 
-        TrainingEvents.RaiseScoreChanged(delta, totalScore);
+        TrainingEvents.RaiseScoreChanged(actualDelta, totalScore);
     }
 
     public void ResetScore()

@@ -21,9 +21,14 @@ public class EventLogger : MonoBehaviour
         Log("SCENARIO_STARTED", $"scenarioId={scenarioId}, name={scenarioName}, scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
     }
 
-    public void LogScenarioCompleted(string scenarioId, int finalScore, float duration)
+    public void LogScenarioCompleted(string scenarioId, ScenarioResults results)
     {
-        Log("SCENARIO_COMPLETED", $"scenarioId={scenarioId}, score={finalScore}, duration={duration:F1}s");
+        Log("SCENARIO_COMPLETED", $"scenarioId={scenarioId}, score={results.finalScore}, duration={results.duration:F1}s, found={results.hazardsFound}/{results.totalHazards}, missed={results.hazardsMissed}, incorrect={results.incorrectAttempts}, penalties={results.penalties}");
+    }
+
+    public void LogScoreBreakdown(ScenarioResults results)
+    {
+        Log("SCORE_BREAKDOWN", $"correct={results.hazardsFound}, wrong={results.incorrectAttempts}, missed={results.hazardsMissed}, penalties={results.penalties}, score={results.finalScore}, duration={results.duration:F1}s");
     }
 
     public void LogStateChanged(string from, string to)

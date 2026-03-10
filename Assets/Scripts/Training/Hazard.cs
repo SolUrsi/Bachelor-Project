@@ -17,6 +17,7 @@ public class Hazard : MonoBehaviour, IHazardComponent
     [SerializeField] private TrainingScenarioController scenarioController;
 
     private bool _marked;
+    private int  _attempts;
     private MaterialPropertyBlock _propertyBlock;
 
     public string HazardId => hazardId;
@@ -52,12 +53,15 @@ public class Hazard : MonoBehaviour, IHazardComponent
         if (scenarioController.StateMachine.CurrentState != TrainingStateMachine.TrainingState.IdentifyHazards)
             return;
 
+        _attempts++;
         _marked = true;
 
         if (isCorrectHazard)
         {
+            float timeToFind = Time.time - scenarioController.StartTime;
             scenarioController.ScoreManager.AddPoints(pointsIfCorrect, "Correct hazard identified", hazardId);
             scenarioController.EventLogger.LogHazardMarked(hazardId, true, pointsIfCorrect);
+            scenarioController.NotifyHazardFound(hazardId, _attempts, timeToFind);
             TrainingEvents.RaiseHazardMarked(hazardId, true, pointsIfCorrect);
             SetColor(Color.green);
         }
@@ -65,6 +69,7 @@ public class Hazard : MonoBehaviour, IHazardComponent
         {
             scenarioController.ScoreManager.DeductPoints(penaltyIfWrong, "Incorrect hazard marked", hazardId);
             scenarioController.EventLogger.LogHazardMarked(hazardId, false, -penaltyIfWrong);
+            scenarioController.NotifyIncorrectAttempt();
             TrainingEvents.RaiseHazardMarked(hazardId, false, -penaltyIfWrong);
             SetColor(Color.red);
         }

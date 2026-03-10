@@ -18,6 +18,7 @@ public static class TrainingEvents
 
     // Scenario events
     public static event Action<string, int, float> OnScenarioCompleted; // scenarioId, score, duration
+    public static event Action<ScenarioResults>    OnScoreBreakdown;
 
     // Helper methods for invoking (optional - kan også kalles direkte)
     public static void RaiseStateChanged(TrainingStateMachine.TrainingState from, TrainingStateMachine.TrainingState to)
@@ -43,5 +44,10 @@ public static class TrainingEvents
     public static void RaiseScenarioCompleted(string scenarioId, int score, float duration)
     {
         OnScenarioCompleted?.Invoke(scenarioId, score, duration);
+    }
+
+    public static void RaiseScoreBreakdown(ScenarioResults results)
+    {
+        OnScoreBreakdown?.Invoke(results);
     }
 }

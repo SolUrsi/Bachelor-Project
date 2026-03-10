@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -23,6 +24,13 @@ public class TrainingScenarioController : MonoBehaviour
     public string ScenarioName => scenarioName;
 
     private float _startTime;
+    public float StartTime => _startTime;
+
+    private readonly List<Hazard> _registeredHazards = new List<Hazard>();
+    private int _totalCorrectHazards;
+    private int _hazardsFound;
+    private int _incorrectAttempts;
+    private int _totalPenalties;
 
     private void Awake()
     {
@@ -61,14 +69,12 @@ public class TrainingScenarioController : MonoBehaviour
 
     public void EndScenario()
     {
-        float duration = Time.time - _startTime;
-        int finalScore = scoreManager.TotalScore;
+        var results = GetScenarioResults();
 
         stateMachine.SetState(TrainingStateMachine.TrainingState.Completed);
-        eventLogger.LogScenarioCompleted(scenarioId, finalScore, duration);
-
-        // Publiser til event bus for UI feedback
-        TrainingEvents.RaiseScenarioCompleted(scenarioId, finalScore, duration);
+        eventLogger.LogScenarioCompleted(scenarioId, results);
+        TrainingEvents.RaiseScoreBreakdown(results);
+        TrainingEvents.RaiseScenarioCompleted(scenarioId, results.finalScore, results.duration);
     }
 
     /// <summary>
@@ -77,6 +83,44 @@ public class TrainingScenarioController : MonoBehaviour
     /// </summary>
     public void RegisterHazard(IHazardComponent hazard)
     {
-        // Kan brukes til tracking, statistikk, reset, etc.
+        if (hazard is Hazard h)
+        {
+            _registeredHazards.Add(h);
+            if (h.isCorrectHazard) _totalCorrectHazards++;
+        }
+    }
+
+    public void NotifyHazardFound(string hazardId, int attempts, float timeToFind)
+    {
+        _hazardsFound++;
+
+        #if UNITY_EDITOR
+        Debug.Log($"[Scenario] Hazard found: {hazardId} attempts={attempts} time={timeToFind:F1}s");
+        #endif
+    }
+
+    public void NotifyIncorrectAttempt()
+    {
+        _incorrectAttempts++;
+    }
+
+    public void NotifyPenalty(int amount)
+    {
+        _totalPenalties += amount;
+    }
+
+    public ScenarioResults GetScenarioResults()
+    {
+        int missed = _totalCorrectHazards - _hazardsFound;
+        return new ScenarioResults
+        {
+            finalScore        = scoreManager.TotalScore,
+            duration          = Time.time - _startTime,
+            totalHazards      = _totalCorrectHazards,
+            hazardsFound      = _hazardsFound,
+            hazardsMissed     = missed,
+            incorrectAttempts = _incorrectAttempts,
+            penalties         = _totalPenalties
+        };
     }
 }

@@ -53,6 +53,7 @@ public class HazardTrigger : MonoBehaviour, IHazardComponent
 
         scenarioController.ScoreManager.DeductPoints(penaltyPoints, $"Trigger: {description}", triggerId);
         scenarioController.EventLogger.LogTriggerFired(triggerId, description, other.name, -penaltyPoints);
+        scenarioController.NotifyPenalty(penaltyPoints);
         TrainingEvents.RaiseTriggerFired(triggerId, description, -penaltyPoints);
 
         #if UNITY_EDITOR
