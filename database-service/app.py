@@ -27,9 +27,10 @@ MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 
 TOPICS = [
-    ("training/events",  1),
-    ("training/session", 1),
-    ("training/hse",     1),
+    ("training/events",        1),
+    ("training/session",       1),
+    ("training/hse",           1),
+    ("training/score/request", 1),  # Unity requests authoritative score at session end
 ]
 
 DB_DSN = (
@@ -98,7 +99,74 @@ def store_event(topic: str, raw: str) -> None:
             pass
         _db = None  # Tving re-tilkobling neste gang
 
-# ── MQTT callbacks ─────────────────────────────────────────────────────────────
+# ── Score calculation ────────────────────────────────────────────────────────────────
+
+def calculate_score(session_id: str) -> int:
+    """
+    Derives the authoritative final score from the stored event history.
+
+    Rules (mirrors Unity's ScoreManager logic):
+      HAZARD_MARKED  – payload.points is the signed delta
+                       (positive for correct, negative for wrong).
+      HSE_ALERT_EVENT – payload.penalty is always positive; subtracted from score.
+    The result is clamped to >= 0 to match ScoreManager.DeductPoints behaviour.
+    """
+    global _db
+    try:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                SELECT GREATEST(0, COALESCE(SUM(
+                    CASE
+                        WHEN event_type = 'HAZARD_MARKED'
+                            THEN (payload->'payload'->>'points')::int
+                        WHEN event_type = 'HSE_ALERT_EVENT'
+                            THEN -ABS((payload->'payload'->>'penalty')::int)
+                        ELSE 0
+                    END
+                ), 0))
+                FROM training_events
+                WHERE session_id = %s
+                """,
+                (session_id,),
+            )
+            row = cur.fetchone()
+            return int(row[0]) if row and row[0] is not None else 0
+    except Exception as e:
+        log.error(f"Score calculation failed for session={session_id[:8]}...: {e}")
+        try:
+            _db.rollback()
+        except Exception:
+            pass
+        _db = None
+        return 0
+
+
+def handle_score_request(client, raw: str) -> None:
+    """
+    Handles a SCORE_REQUEST message from Unity.
+    Calculates the authoritative score from stored events and publishes
+    the result to training/score/response.
+    """
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        log.error(f"Invalid JSON in score request: {raw!r}")
+        return
+
+    session_id = data.get("sessionId", "").strip()
+    if not session_id:
+        log.warning("Score request received with missing sessionId")
+        return
+
+    score = calculate_score(session_id)
+    response = json.dumps({"sessionId": session_id, "finalScore": score})
+    client.publish("training/score/response", response, qos=1)
+    log.info(f"✓ SCORE_REQUEST | session={session_id[:8]}... | finalScore={score}")
+
+
+# ── MQTT callbacks ────────────────────────────────────────────────────────────
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -118,7 +186,10 @@ def on_disconnect(client, userdata, rc):
 def on_message(client, userdata, msg):
     raw = msg.payload.decode("utf-8", errors="replace")
     log.debug(f"← [{msg.topic}] {raw}")
-    store_event(msg.topic, raw)
+    if msg.topic == "training/score/request":
+        handle_score_request(client, raw)
+    else:
+        store_event(msg.topic, raw)
 
 # ── Hovedløkke ─────────────────────────────────────────────────────────────────
 

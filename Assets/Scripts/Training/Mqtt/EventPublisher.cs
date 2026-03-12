@@ -22,9 +22,10 @@ public class EventPublisher : MonoBehaviour
     private SessionContext _session;
     private ScoreManager   _scoreManager;
 
-    private const string TopicEvents  = "training/events";
-    private const string TopicSession = "training/session";
-    private const string TopicHse     = "training/hse";
+    private const string TopicEvents       = "training/events";
+    private const string TopicSession      = "training/session";
+    private const string TopicHse          = "training/hse";
+    private const string TopicScoreRequest = "training/score/request";
 
     private void Awake()
     {
@@ -70,9 +71,13 @@ public class EventPublisher : MonoBehaviour
         }));
     }
 
-    public void PublishHazardTriggered(string hazardId, bool correct, int points)
+    /// <summary>
+    /// Publishes a HAZARD_MARKED event. <paramref name="points"/> is the signed
+    /// delta: positive for a correct identification, negative for a wrong one.
+    /// </summary>
+    public void PublishHazardMarked(string hazardId, bool correct, int points)
     {
-        Send(TopicEvents, Build("HAZARD_TRIGGERED", new EventPayload
+        Send(TopicEvents, Build("HAZARD_MARKED", new EventPayload
         {
             hazardId = hazardId,
             correct  = correct,
@@ -110,6 +115,25 @@ public class EventPublisher : MonoBehaviour
             isSuccess      = isSuccess,
             totalScore     = _scoreManager?.TotalScore ?? 0
         }));
+    }
+
+    /// <summary>
+    /// Publishes a SCORE_REQUEST to training/score/request.
+    /// The backend calculates the authoritative final score from the stored event
+    /// history and responds on training/score/response.
+    /// </summary>
+    public void RequestFinalScore()
+    {
+        if (MqttService.Instance == null) return;
+
+        var request = new ScoreRequestMessage
+        {
+            sessionId = _session?.SessionId ?? "",
+            type      = "SCORE_REQUEST"
+        };
+
+        MqttService.Instance.Publish(TopicScoreRequest, JsonUtility.ToJson(request));
+        Debug.Log($"[EventPublisher] Score request sent for session={_session?.SessionId}");
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────

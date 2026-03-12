@@ -28,16 +28,24 @@ public class MqttService : MonoBehaviour
     [SerializeField] private string clientId    = "traftec-vr";
 
     [Header("Topics")]
-    [SerializeField] private string topicEvents  = "training/events";
-    [SerializeField] private string topicSession = "training/session";
-    [SerializeField] private string topicHse     = "training/hse";
+    [SerializeField] private string topicEvents       = "training/events";
+    [SerializeField] private string topicSession      = "training/session";
+    [SerializeField] private string topicHse          = "training/hse";
+    [SerializeField] private string topicScoreResponse = "training/score/response";
+
+    /// <summary>
+    /// Fired on the Unity main thread when the backend publishes a score response.
+    /// Subscribe in UI components to display the authoritative final score.
+    /// </summary>
+    public static event Action<string, int> OnScoreResponseReceived;
 
     // [IMPROVEMENT 3] Bounded publish queue – max 1000 events.
     private const int MaxQueueSize = 1000;
 
     private IMqttClient _client;
     private MqttClientOptions _options;
-    private readonly ConcurrentQueue<(string topic, string payload)> _queue = new();
+    private readonly ConcurrentQueue<(string topic, string payload)> _queue        = new();
+    private readonly ConcurrentQueue<string>                         _scoreRawQueue = new();
     private CancellationTokenSource _cts;
 
     private void Awake()
@@ -98,6 +106,21 @@ public class MqttService : MonoBehaviour
             }
         };
 
+        // Route inbound messages from subscribed topics to the main-thread queue.
+        _client.ApplicationMessageReceivedAsync += e =>
+        {
+            if (e.ApplicationMessage.Topic == topicScoreResponse)
+            {
+                var seg = e.ApplicationMessage.PayloadSegment;
+                string raw = seg.Array != null
+                    ? Encoding.UTF8.GetString(seg.Array, seg.Offset, seg.Count)
+                    : string.Empty;
+                if (!string.IsNullOrEmpty(raw))
+                    _scoreRawQueue.Enqueue(raw);
+            }
+            return Task.CompletedTask;
+        };
+
         await TryConnectAsync(ct).ConfigureAwait(false);
 
         while (!ct.IsCancellationRequested)
@@ -147,6 +170,14 @@ public class MqttService : MonoBehaviour
             Debug.Log($"[MQTT] Connecting to {brokerHost}:{brokerPort}...");
             await _client.ConnectAsync(_options, ct).ConfigureAwait(false);
             Debug.Log("[MQTT] Connected.");
+
+            // Subscribe to the score-response topic after every successful connection
+            // (re-subscribe is required after reconnects with CleanSession=true).
+            var subOptions = new MqttClientSubscribeOptionsBuilder()
+                .WithTopicFilter(topicScoreResponse, MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
+            await _client.SubscribeAsync(subOptions, ct).ConfigureAwait(false);
+            Debug.Log($"[MQTT] Subscribed to {topicScoreResponse}");
         }
         catch (OperationCanceledException) { }
         catch (Exception e)
@@ -156,6 +187,28 @@ public class MqttService : MonoBehaviour
     }
 
     // ── Offentlig API (kalles fra Unity main thread) ─────────────────────────────
+
+    /// <summary>
+    /// Drains inbound score-response messages on the Unity main thread and fires
+    /// <see cref="OnScoreResponseReceived"/> so UI components can react without
+    /// needing thread-marshalling themselves.
+    /// </summary>
+    private void Update()
+    {
+        while (_scoreRawQueue.TryDequeue(out string raw))
+        {
+            try
+            {
+                var resp = JsonUtility.FromJson<ScoreResponseMessage>(raw);
+                Debug.Log($"[MQTT] Score response: session={resp.sessionId}, finalScore={resp.finalScore}");
+                OnScoreResponseReceived?.Invoke(resp.sessionId, resp.finalScore);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[MQTT] Failed to parse score response: {e.Message}");
+            }
+        }
+    }
 
     public void Publish(string topic, string json)
     {

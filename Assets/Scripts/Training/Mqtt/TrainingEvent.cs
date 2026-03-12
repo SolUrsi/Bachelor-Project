@@ -70,3 +70,26 @@ public class TrainingEvent
     public EventPayload  payload;
     public TelemetryData telemetry;
 }
+
+/// <summary>
+/// Published to training/score/request when the scenario ends.
+/// The backend calculates the authoritative final score from stored events
+/// and publishes the result to training/score/response.
+/// </summary>
+[Serializable]
+public class ScoreRequestMessage
+{
+    public string sessionId;
+    public string type;        // always "SCORE_REQUEST"
+}
+
+/// <summary>
+/// Received from training/score/response after a SCORE_REQUEST.
+/// Contains the backend-calculated authoritative final score.
+/// </summary>
+[Serializable]
+public class ScoreResponseMessage
+{
+    public string sessionId;
+    public int    finalScore;
+}

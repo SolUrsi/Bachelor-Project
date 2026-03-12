@@ -26,6 +26,9 @@ public class TrainingScenarioController : MonoBehaviour
     private float _startTime;
     public float StartTime => _startTime;
 
+    // Created once per scenario run; stamped on every MQTT event header.
+    private readonly SessionContext _session = new SessionContext();
+
     private readonly List<Hazard> _registeredHazards = new List<Hazard>();
     private int _totalCorrectHazards;
     private int _hazardsFound;
@@ -57,6 +60,9 @@ public class TrainingScenarioController : MonoBehaviour
 
     private void Start()
     {
+        // Start() runs after all Awake() calls, so EventPublisher.Instance is guaranteed set.
+        _session.Start(scenarioId, scenarioName);
+        EventPublisher.Instance?.Initialize(_session, scoreManager);
         StartScenario();
     }
 
@@ -72,9 +78,12 @@ public class TrainingScenarioController : MonoBehaviour
         var results = GetScenarioResults();
 
         stateMachine.SetState(TrainingStateMachine.TrainingState.Completed);
-        eventLogger.LogScenarioCompleted(scenarioId, results);
+        eventLogger.LogScenarioCompleted(scenarioId, results);  // publishes SESSION_COMPLETED via EventPublisher
         TrainingEvents.RaiseScoreBreakdown(results);
         TrainingEvents.RaiseScenarioCompleted(scenarioId, results.finalScore, results.duration);
+
+        // Ask the backend for the authoritative score calculated from the event history.
+        EventPublisher.Instance?.RequestFinalScore();
     }
 
     /// <summary>

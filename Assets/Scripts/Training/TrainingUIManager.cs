@@ -16,21 +16,24 @@ public class TrainingUIManager : MonoBehaviour
     private void OnEnable()
     {
         // Subscribe til events
-        TrainingEvents.OnScoreChanged += HandleScoreChanged;
-        TrainingEvents.OnStateChanged += HandleStateChanged;
-        TrainingEvents.OnHazardMarked += HandleHazardMarked;
-        TrainingEvents.OnTriggerFired += HandleTriggerFired;
+        TrainingEvents.OnScoreChanged      += HandleScoreChanged;
+        TrainingEvents.OnStateChanged      += HandleStateChanged;
+        TrainingEvents.OnHazardMarked      += HandleHazardMarked;
+        TrainingEvents.OnTriggerFired      += HandleTriggerFired;
         TrainingEvents.OnScenarioCompleted += HandleScenarioCompleted;
+        // Subscribe to backend score response (authoritative final score)
+        MqttService.OnScoreResponseReceived += HandleScoreResponse;
     }
 
     private void OnDisable()
     {
         // Unsubscribe
-        TrainingEvents.OnScoreChanged -= HandleScoreChanged;
-        TrainingEvents.OnStateChanged -= HandleStateChanged;
-        TrainingEvents.OnHazardMarked -= HandleHazardMarked;
-        TrainingEvents.OnTriggerFired -= HandleTriggerFired;
+        TrainingEvents.OnScoreChanged      -= HandleScoreChanged;
+        TrainingEvents.OnStateChanged      -= HandleStateChanged;
+        TrainingEvents.OnHazardMarked      -= HandleHazardMarked;
+        TrainingEvents.OnTriggerFired      -= HandleTriggerFired;
         TrainingEvents.OnScenarioCompleted -= HandleScenarioCompleted;
+        MqttService.OnScoreResponseReceived -= HandleScoreResponse;
     }
 
     private void HandleScoreChanged(int delta, int total)
@@ -71,6 +74,18 @@ public class TrainingUIManager : MonoBehaviour
         {
             ShowFeedback($"Scenario Complete!\nScore: {finalScore}\nTime: {duration:F1}s", Color.white);
         }
+    }
+
+    /// <summary>
+    /// Called when the backend publishes the authoritative final score on
+    /// training/score/response. Overrides the locally-calculated score display.
+    /// </summary>
+    private void HandleScoreResponse(string sessionId, int finalScore)
+    {
+        if (scoreText != null)
+            scoreText.text = $"Score: {finalScore}";
+
+        ShowFeedback($"Verified Score: {finalScore}", Color.cyan);
     }
 
     private void ShowFeedback(string message, Color color)
