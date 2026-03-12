@@ -3,12 +3,16 @@ using UnityEngine;
 public class HazardTrigger : MonoBehaviour, IHazardComponent
 {
     [Header("Trigger Settings")]
-    public string triggerId = "T-001";
-    public string description = "Entered unsafe zone";
-    public int penaltyPoints = 10;
+    public string triggerId    = "T-001";
+    public string description  = "Entered unsafe zone";
+    public int    penaltyPoints = 10;
 
-    [Tooltip("Hvis true: straff kun første gang per session")]
+    [Tooltip("Hvis true: straff kun første gang per session.")]
     public bool onlyOnce = true;
+
+    [Tooltip("Minimum sekunder mellom to påfølgende events fra denne triggeren (gjelder kun når onlyOnce = false). " +
+             "Forhindrer event-spam ved fysikk-glitcher eller raske gjentatte inntrengninger.")]
+    [SerializeField] private float cooldownSeconds = 1f;
 
     [Tooltip("Kun trigges av objects med denne taggen. Tom = ingen filter.")]
     public string requiredTag = "";
@@ -16,13 +20,13 @@ public class HazardTrigger : MonoBehaviour, IHazardComponent
     [Header("Dependencies")]
     [SerializeField] private TrainingScenarioController scenarioController;
 
-    private bool _triggered;
+    private bool  _triggered;
+    private float _lastTriggerTime = float.MinValue;
 
     public string HazardId => triggerId;
 
     private void Awake()
     {
-        // Finn controller hvis ikke satt i Inspector
         if (scenarioController == null)
             scenarioController = FindFirstObjectByType<TrainingScenarioController>();
 
@@ -40,16 +44,23 @@ public class HazardTrigger : MonoBehaviour, IHazardComponent
     {
         if (scenarioController == null) return;
 
-        // Kun aktiv under riktig fase
+        // Kun aktiv under riktig fase.
         if (scenarioController.StateMachine.CurrentState != TrainingStateMachine.TrainingState.IdentifyHazards)
             return;
 
         if (!string.IsNullOrEmpty(requiredTag) && !other.CompareTag(requiredTag))
             return;
 
+        // Primary guard: fire at most once per session when onlyOnce = true.
         if (onlyOnce && _triggered) return;
 
-        _triggered = true;
+        // Anti-spam guard: enforce minimum cooldown between events.
+        // Prevents duplicate events from physics glitches or rapid boundary crossings
+        // in XR where the controller can clip a collider multiple times in < 1 frame.
+        if (Time.time - _lastTriggerTime < cooldownSeconds) return;
+
+        _triggered      = true;
+        _lastTriggerTime = Time.time;
 
         scenarioController.ScoreManager.DeductPoints(penaltyPoints, $"Trigger: {description}", triggerId);
         scenarioController.EventLogger.LogTriggerFired(triggerId, description, other.name, -penaltyPoints);
@@ -63,6 +74,7 @@ public class HazardTrigger : MonoBehaviour, IHazardComponent
 
     public void Reset()
     {
-        _triggered = false;
+        _triggered       = false;
+        _lastTriggerTime = float.MinValue;
     }
 }

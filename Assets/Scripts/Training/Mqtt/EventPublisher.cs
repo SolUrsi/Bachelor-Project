@@ -53,6 +53,16 @@ public class EventPublisher : MonoBehaviour
         }));
     }
 
+    /// <summary>
+    /// Publishes SESSION_COMPLETED to training/session.
+    /// <para>
+    /// <paramref name="finalScore"/> is Unity's LOCAL running score at the moment the
+    /// scenario ends. It is included in the payload as a convenience snapshot for the
+    /// database, but it is NOT the authoritative final score.
+    /// The authoritative score is calculated by the backend from the full event history
+    /// and returned via training/score/response after <see cref="RequestFinalScore"/>.
+    /// </para>
+    /// </summary>
     public void PublishSessionCompleted(int finalScore, float duration)
     {
         Send(TopicSession, Build("SESSION_COMPLETED", new EventPayload
@@ -95,6 +105,16 @@ public class EventPublisher : MonoBehaviour
         }));
     }
 
+    /// <summary>
+    /// Publishes a SCORE_UPDATED telemetry event to training/events.
+    /// <para>
+    /// This event is supplementary telemetry – the backend does NOT use <c>totalScore</c>
+    /// here to calculate the authoritative final score. Score calculation is derived
+    /// solely from HAZARD_MARKED and HSE_ALERT_EVENT events.
+    /// <c>totalScore</c> is Unity's non-authoritative local running total, included
+    /// only so developers can cross-check the event stream during debugging.
+    /// </para>
+    /// </summary>
     public void PublishScoreUpdated(int scoreDelta, int totalScore, string reason, string objectId)
     {
         Send(TopicEvents, Build("SCORE_UPDATED", new EventPayload
