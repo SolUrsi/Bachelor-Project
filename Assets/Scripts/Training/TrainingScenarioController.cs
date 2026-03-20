@@ -1,135 +1,98 @@
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Sentral controller for ett treningsscenario. Eier state, score, logging og evaluering.
-/// Hazard-komponenter får referanse til denne via Inspector eller Awake.
+/// Central coordinator for a training scenario lifecycle.
+/// 
+/// Responsibilities:
+///   - Manage scenario state transitions (start, end, reset)
+///   - Coordinate with EventService for publishing scenario events
+///   - Track scenario duration and metadata
+///   - Manage stateMachine state
+/// 
+/// Works closely with TrainingStateMachine for gameplay flow control.
 /// </summary>
 public class TrainingScenarioController : MonoBehaviour
 {
-    [Header("Services")]
     [SerializeField] private TrainingStateMachine stateMachine;
-    [SerializeField] private ScoreManager scoreManager;
-    [SerializeField] private EventLogger eventLogger;
 
-    [Header("Scenario Config")]
-    [SerializeField] private string scenarioId = "SCENARIO-001";
-    [SerializeField] private string scenarioName = "HMS Grunnleggende";
-    
+    private float _scenarioStartTime;
+
     public TrainingStateMachine StateMachine => stateMachine;
-    public ScoreManager ScoreManager => scoreManager;
-    public EventLogger EventLogger => eventLogger;
-    
-    public string ScenarioId => scenarioId;
-    public string ScenarioName => scenarioName;
-
-    private float _startTime;
-    public float StartTime => _startTime;
-
-    // Created once per scenario run; stamped on every MQTT event header.
-    private readonly SessionContext _session = new SessionContext();
-
-    private readonly List<Hazard> _registeredHazards = new List<Hazard>();
-    private int _totalCorrectHazards;
-    private int _hazardsFound;
-    private int _incorrectAttempts;
-    private int _totalPenalties;
 
     private void Awake()
     {
-        // Valider at services er tilkoblet
         if (stateMachine == null)
-            stateMachine = GetComponentInChildren<TrainingStateMachine>();
-        if (scoreManager == null)
-            scoreManager = GetComponentInChildren<ScoreManager>();
-        if (eventLogger == null)
-            eventLogger = GetComponentInChildren<EventLogger>();
+            stateMachine = FindFirstObjectByType<TrainingStateMachine>();
 
-        if (stateMachine == null || scoreManager == null || eventLogger == null)
+        if (stateMachine == null)
         {
-            Debug.LogError($"[ScenarioController] Mangler påkrevde services!", this);
+            Debug.LogError("[TrainingScenarioController] TrainingStateMachine not found!", this);
             enabled = false;
-            return;
         }
-
-        // Gi services referanse til controller
-        stateMachine.Initialize(this);
-        scoreManager.Initialize(this);
-        eventLogger.Initialize(this);
-    }
-
-    private void Start()
-    {
-        // Start() runs after all Awake() calls, so EventPublisher.Instance is guaranteed set.
-        _session.Start(scenarioId, scenarioName);
-        EventPublisher.Instance?.Initialize(_session, scoreManager);
-        StartScenario();
-    }
-
-    public void StartScenario()
-    {
-        _startTime = Time.time;
-        eventLogger.LogScenarioStarted(scenarioId, scenarioName);
-        stateMachine.SetState(TrainingStateMachine.TrainingState.Briefing);
-    }
-
-    public void EndScenario()
-    {
-        var results = GetScenarioResults();
-
-        stateMachine.SetState(TrainingStateMachine.TrainingState.Completed);
-        eventLogger.LogScenarioCompleted(scenarioId, results);  // publishes SESSION_COMPLETED via EventPublisher
-        TrainingEvents.RaiseScoreBreakdown(results);
-        TrainingEvents.RaiseScenarioCompleted(scenarioId, results.finalScore, results.duration);
-
-        // Ask the backend for the authoritative score calculated from the event history.
-        EventPublisher.Instance?.RequestFinalScore();
     }
 
     /// <summary>
-    /// Registrer hazard-komponenter slik at de kan få tilgang til services.
-    /// Kalles automatisk fra Hazard.Awake() eller HazardTrigger.Awake().
+    /// Called when the scenario officially starts (e.g., UI button pressed).
+    /// Publishes SESSION_START event via EventService.
     /// </summary>
-    public void RegisterHazard(IHazardComponent hazard)
+    public void StartScenario()
     {
-        if (hazard is Hazard h)
+        if (stateMachine.CurrentState != TrainingStateMachine.TrainingState.NotStarted)
         {
-            _registeredHazards.Add(h);
-            if (h.isCorrectHazard) _totalCorrectHazards++;
+            Debug.LogWarning("[TrainingScenarioController] Scenario already started");
+            return;
         }
+
+        _scenarioStartTime = Time.time;
+        stateMachine.SetState(TrainingStateMachine.TrainingState.Active);
+
+        var sessionManager = FindFirstObjectByType<TrainingSessionManager>();
+        string scenarioName = sessionManager?.ScenarioName ?? "Training Scenario";
+
+        EventService.Instance?.PublishSessionStarted(scenarioName);
+
+        Debug.Log($"[TrainingScenarioController] Scenario started");
     }
 
-    public void NotifyHazardFound(string hazardId, int attempts, float timeToFind)
+    /// <summary>
+    /// Called when the scenario officially ends (e.g., all hazards found, time up).
+    /// Publishes SESSION_END event and requests the authoritative final score.
+    /// </summary>
+    public void EndScenario()
     {
-        _hazardsFound++;
-
-        #if UNITY_EDITOR
-        Debug.Log($"[Scenario] Hazard found: {hazardId} attempts={attempts} time={timeToFind:F1}s");
-        #endif
-    }
-
-    public void NotifyIncorrectAttempt()
-    {
-        _incorrectAttempts++;
-    }
-
-    public void NotifyPenalty(int amount)
-    {
-        _totalPenalties += amount;
-    }
-
-    public ScenarioResults GetScenarioResults()
-    {
-        int missed = _totalCorrectHazards - _hazardsFound;
-        return new ScenarioResults
+        if (stateMachine.CurrentState != TrainingStateMachine.TrainingState.Active)
         {
-            finalScore        = scoreManager.TotalScore,
-            duration          = Time.time - _startTime,
-            totalHazards      = _totalCorrectHazards,
-            hazardsFound      = _hazardsFound,
-            hazardsMissed     = missed,
-            incorrectAttempts = _incorrectAttempts,
-            penalties         = _totalPenalties
-        };
+            Debug.LogWarning("[TrainingScenarioController] Scenario not active");
+            return;
+        }
+
+        float duration = Time.time - _scenarioStartTime;
+        stateMachine.SetState(TrainingStateMachine.TrainingState.Ended);
+
+        EventService.Instance?.PublishSessionEnded(duration);
+        EventService.Instance?.RequestFinalScore();
+
+        Debug.Log($"[TrainingScenarioController] Scenario ended (duration: {duration:F1}s)");
+    }
+
+    /// <summary>
+    /// Reset session state for a new run (e.g., "Try Again").
+    /// </summary>
+    public void ResetScenario()
+    {
+        stateMachine.SetState(TrainingStateMachine.TrainingState.NotStarted);
+
+        var sessionManager = FindFirstObjectByType<TrainingSessionManager>();
+        sessionManager?.ResetSession();
+
+        // Reset all hazards and triggers
+        foreach (var hazard in FindObjectsByType<Hazard>(FindObjectsSortMode.None))
+            hazard.Reset();
+
+        foreach (var trigger in FindObjectsByType<HazardTrigger>(FindObjectsSortMode.None))
+            trigger.Reset();
+
+        Debug.Log("[TrainingScenarioController] Scenario reset");
     }
 }

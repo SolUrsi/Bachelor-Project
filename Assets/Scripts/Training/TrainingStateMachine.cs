@@ -1,67 +1,40 @@
 using UnityEngine;
 
+/// <summary>
+/// Minimal state machine tracking the current phase of a training scenario.
+/// 
+/// States:
+///   - NotStarted: Initial state before session begins
+///   - Active: User is interacting with the simulation
+///   - Ended: Session has concluded
+/// 
+/// This is purely for local gameplay flow and UI state.
+/// Events are published directly by Hazard, HazardTrigger, and interactable objects.
+/// </summary>
 public class TrainingStateMachine : MonoBehaviour
 {
     public enum TrainingState
     {
         NotStarted,
-        Briefing,
-        IdentifyHazards,
-        Review,
-        Completed
+        Active,
+        Ended
     }
 
-    [Header("State")]
-    [SerializeField] private TrainingState currentState = TrainingState.NotStarted;
-    public TrainingState CurrentState => currentState;
-
-    private TrainingScenarioController _controller;
-    private ScoreManager _score;
-    private EventLogger _logger;
-
-    public void Initialize(TrainingScenarioController controller)
-    {
-        _controller = controller;
-        _score = controller.ScoreManager;
-        _logger = controller.EventLogger;
-    }
+    [SerializeField] private TrainingState _currentState = TrainingState.NotStarted;
+    public TrainingState CurrentState => _currentState;
 
     public void SetState(TrainingState newState)
     {
-        if (newState == currentState) return;
+        if (newState == _currentState)
+            return;
 
-        var from = currentState;
-        currentState = newState;
+        var previous = _currentState;
+        _currentState = newState;
 
         #if UNITY_EDITOR
-        Debug.Log($"[State] {from} -> {currentState}");
+        Debug.Log($"[TrainingState] {previous} ? {_currentState}");
         #endif
-
-        if (_logger != null) 
-            _logger.LogStateChanged(from.ToString(), currentState.ToString());
-
-        TrainingEvents.RaiseStateChanged(from, currentState);
     }
 
-    // Kalles fra UI-knapp eller start-logikk
-    public void StartHazardPhase()
-    {
-        if (currentState != TrainingState.Briefing) return;
-        SetState(TrainingState.IdentifyHazards);
-    }
-
-    public void FinishHazardPhase()
-    {
-        if (currentState != TrainingState.IdentifyHazards) return;
-        SetState(TrainingState.Review);
-    }
-
-    public void CompleteSession()
-    {
-        if (currentState != TrainingState.Review) return;
-        SetState(TrainingState.Completed);
-
-        if (_logger != null && _score != null)
-            _logger.LogSessionEnded(_score.TotalScore);
-    }
+    public bool IsActive => _currentState == TrainingState.Active;
 }

@@ -1,71 +1,57 @@
 using UnityEngine;
 
+/// <summary>
+/// A trigger volume that fires an HSE_ALERT_EVENT when the player enters while active.
+/// 
+/// Publishes events via EventService; backend receives and processes these.
+/// 
+/// Supports:
+///   - One-time triggering (onlyOnce flag)
+///   - Cooldown to prevent spam from physics glitches
+///   - Tag filtering to only trigger on specific objects
+/// </summary>
 public class HazardTrigger : MonoBehaviour, IHazardComponent
 {
-    [Header("Trigger Settings")]
-    public string triggerId    = "T-001";
-    public string description  = "Entered unsafe zone";
-    public int    penaltyPoints = 10;
+    [Header("Trigger Configuration")]
+    [SerializeField] private string triggerId = "T-001";
+    [SerializeField] private string description = "Entered unsafe zone";
+    [SerializeField] private int penaltyPoints = 10;
 
-    [Tooltip("Hvis true: straff kun første gang per session.")]
-    public bool onlyOnce = true;
-
-    [Tooltip("Minimum sekunder mellom to påfølgende events fra denne triggeren (gjelder kun når onlyOnce = false). " +
-             "Forhindrer event-spam ved fysikk-glitcher eller raske gjentatte inntrengninger.")]
+    [Header("Behavior")]
+    [SerializeField] private bool onlyOnce = true;
     [SerializeField] private float cooldownSeconds = 1f;
+    [SerializeField] private string requiredTag = "";
 
-    [Tooltip("Kun trigges av objects med denne taggen. Tom = ingen filter.")]
-    public string requiredTag = "";
-
-    [Header("Dependencies")]
-    [SerializeField] private TrainingScenarioController scenarioController;
-
-    private bool  _triggered;
+    private TrainingStateMachine _stateMachine;
+    private bool _triggered = false;
     private float _lastTriggerTime = float.MinValue;
 
     public string HazardId => triggerId;
 
     private void Awake()
     {
-        if (scenarioController == null)
-            scenarioController = FindFirstObjectByType<TrainingScenarioController>();
-
-        if (scenarioController == null)
-        {
-            Debug.LogError($"[HazardTrigger] {triggerId}: Ingen TrainingScenarioController funnet!", this);
-            enabled = false;
-            return;
-        }
-
-        scenarioController.RegisterHazard(this);
+        _stateMachine = FindFirstObjectByType<TrainingStateMachine>();
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (scenarioController == null) return;
-
-        // Kun aktiv under riktig fase.
-        if (scenarioController.StateMachine.CurrentState != TrainingStateMachine.TrainingState.IdentifyHazards)
+        if (_stateMachine == null || !_stateMachine.IsActive)
             return;
 
         if (!string.IsNullOrEmpty(requiredTag) && !other.CompareTag(requiredTag))
             return;
 
-        // Primary guard: fire at most once per session when onlyOnce = true.
-        if (onlyOnce && _triggered) return;
+        if (onlyOnce && _triggered)
+            return;
 
-        // Anti-spam guard: enforce minimum cooldown between events.
-        // Prevents duplicate events from physics glitches or rapid boundary crossings
-        // in XR where the controller can clip a collider multiple times in < 1 frame.
-        if (Time.time - _lastTriggerTime < cooldownSeconds) return;
+        if (Time.time - _lastTriggerTime < cooldownSeconds)
+            return;
 
-        _triggered      = true;
+        _triggered = true;
         _lastTriggerTime = Time.time;
 
-        scenarioController.ScoreManager.DeductPoints(penaltyPoints, $"Trigger: {description}", triggerId);
-        scenarioController.EventLogger.LogTriggerFired(triggerId, description, other.name, -penaltyPoints);
-        scenarioController.NotifyPenalty(penaltyPoints);
-        TrainingEvents.RaiseTriggerFired(triggerId, description, -penaltyPoints);
+        // Publish HSE alert to backend
+        EventService.Instance?.PublishHseAlert(triggerId, description, penaltyPoints);
 
         #if UNITY_EDITOR
         Debug.Log($"[HazardTrigger] {triggerId} fired by {other.name}");
@@ -74,7 +60,7 @@ public class HazardTrigger : MonoBehaviour, IHazardComponent
 
     public void Reset()
     {
-        _triggered       = false;
+        _triggered = false;
         _lastTriggerTime = float.MinValue;
     }
 }

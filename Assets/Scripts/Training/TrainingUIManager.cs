@@ -2,90 +2,48 @@ using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// Eksempel på hvordan presentation layer lytter på TrainingEvents.
-/// UI, Audio og VFX får all info via event bus - ingen direkte avhengighet til game logic.
+/// Handles UI updates for the training scenario.
+/// 
+/// Responsibilities:
+///   - Display final score from backend (via ScoreResponseHandler)
+///   - Show scenario state changes
+///   - Provide visual feedback to the player
+/// 
+/// This is the ONLY place where score should be displayed to the player.
+/// All scoring logic happens on the backend.
 /// </summary>
 public class TrainingUIManager : MonoBehaviour
 {
     [Header("UI Elements")]
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI stateText;
-    [SerializeField] private GameObject hazardFeedbackPanel;
+    [SerializeField] private GameObject feedbackPanel;
     [SerializeField] private TextMeshProUGUI feedbackText;
+
+    private int _displayedScore = 0;
 
     private void OnEnable()
     {
-        // Subscribe til events
-        TrainingEvents.OnScoreChanged      += HandleScoreChanged;
-        TrainingEvents.OnStateChanged      += HandleStateChanged;
-        TrainingEvents.OnHazardMarked      += HandleHazardMarked;
-        TrainingEvents.OnTriggerFired      += HandleTriggerFired;
-        TrainingEvents.OnScenarioCompleted += HandleScenarioCompleted;
-        // Subscribe to backend score response (authoritative final score)
-        MqttService.OnScoreResponseReceived += HandleScoreResponse;
+        ScoreResponseHandler.OnScoreReceived += HandleScoreResponse;
     }
 
     private void OnDisable()
     {
-        // Unsubscribe
-        TrainingEvents.OnScoreChanged      -= HandleScoreChanged;
-        TrainingEvents.OnStateChanged      -= HandleStateChanged;
-        TrainingEvents.OnHazardMarked      -= HandleHazardMarked;
-        TrainingEvents.OnTriggerFired      -= HandleTriggerFired;
-        TrainingEvents.OnScenarioCompleted -= HandleScenarioCompleted;
-        MqttService.OnScoreResponseReceived -= HandleScoreResponse;
+        ScoreResponseHandler.OnScoreReceived -= HandleScoreResponse;
     }
 
-    private void HandleScoreChanged(int delta, int total)
-    {
-        if (scoreText != null)
-            scoreText.text = $"Score: {total}";
-    }
-
-    private void HandleStateChanged(TrainingStateMachine.TrainingState from, TrainingStateMachine.TrainingState to)
-    {
-        if (stateText != null)
-            stateText.text = to.ToString();
-    }
-
-    private void HandleHazardMarked(string hazardId, bool correct, int points)
-    {
-        if (feedbackText != null)
-        {
-            string message = correct 
-                ? $"✓ Correct! +{points}" 
-                : $"✗ Wrong hazard -{Mathf.Abs(points)}";
-            
-            ShowFeedback(message, correct ? Color.green : Color.red);
-        }
-    }
-
-    private void HandleTriggerFired(string triggerId, string description, int penalty)
-    {
-        if (feedbackText != null)
-        {
-            ShowFeedback($"⚠ {description} {penalty}", Color.yellow);
-        }
-    }
-
-    private void HandleScenarioCompleted(string scenarioId, int finalScore, float duration)
-    {
-        if (feedbackText != null)
-        {
-            ShowFeedback($"Scenario Complete!\nScore: {finalScore}\nTime: {duration:F1}s", Color.white);
-        }
-    }
-
-    /// <summary>
-    /// Called when the backend publishes the authoritative final score on
-    /// training/score/response. Overrides the locally-calculated score display.
-    /// </summary>
     private void HandleScoreResponse(string sessionId, int finalScore)
     {
-        if (scoreText != null)
-            scoreText.text = $"Score: {finalScore}";
+        _displayedScore = finalScore;
 
-        ShowFeedback($"Verified Score: {finalScore}", Color.cyan);
+        if (scoreText != null)
+            scoreText.text = $"Final Score: {finalScore}";
+
+        ShowFeedback($"Scenario Complete!\nFinal Score: {finalScore}", Color.cyan);
+
+        #if UNITY_EDITOR
+        Debug.Log($"[UI] Final score received: {finalScore}");
+        #endif
     }
 
     private void ShowFeedback(string message, Color color)
@@ -96,16 +54,16 @@ public class TrainingUIManager : MonoBehaviour
             feedbackText.color = color;
         }
 
-        if (hazardFeedbackPanel != null)
+        if (feedbackPanel != null)
         {
-            hazardFeedbackPanel.SetActive(true);
-            Invoke(nameof(HideFeedback), 3f);
+            feedbackPanel.SetActive(true);
+            Invoke(nameof(HideFeedback), 4f);
         }
     }
 
     private void HideFeedback()
     {
-        if (hazardFeedbackPanel != null)
-            hazardFeedbackPanel.SetActive(false);
+        if (feedbackPanel != null)
+            feedbackPanel.SetActive(false);
     }
 }
