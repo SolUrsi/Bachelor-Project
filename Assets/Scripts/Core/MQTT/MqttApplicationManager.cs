@@ -39,6 +39,7 @@ public class MqttApplicationManager : MonoBehaviour
     [SerializeField] private string topicScoreResponse = "response/points";
 
     /// <summary>
+    /// Fired on the main thread when a message is received.
     /// </summary>
     public static event Action<string, string> OnMessageReceived;
 
@@ -51,8 +52,12 @@ public class MqttApplicationManager : MonoBehaviour
     private bool _isConnected = false;
     private bool _isConnecting = false;
     private CancellationTokenSource _connectionCts;
-    
+    private string _clientId;
+    private ConcurrentQueue<(string topic, string payload)> _messageQueue;
+    private ConcurrentQueue<(string topic, string payload)> _publishQueue;
 
+    private void Awake()
+    {
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -62,6 +67,8 @@ public class MqttApplicationManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
+        _messageQueue = new ConcurrentQueue<(string, string)>();
+        _publishQueue = new ConcurrentQueue<(string, string)>();
         _clientId = $"traftec-vr-{SystemInfo.deviceUniqueIdentifier.GetHashCode()}";
 
         Debug.Log($"[MQTT] Application manager initialized (Client ID: {_clientId})");
@@ -219,7 +226,7 @@ public class MqttApplicationManager : MonoBehaviour
     {
         try
         {
-            string payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+            string payload = Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment);
             _messageQueue.Enqueue((e.ApplicationMessage.Topic, payload));
         }
         catch (Exception ex)
