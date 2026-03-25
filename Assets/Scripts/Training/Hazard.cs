@@ -1,23 +1,29 @@
 using UnityEngine;
 
+/// <summary>
+/// A hazard that the player must identify during the training scenario.
+/// 
+/// When marked by the player, publishes a HAZARD_MARKED event via EventService.
+/// The database system uses these events to calculate the final score.
+/// 
+/// Prevents duplicate marking via the _marked flag and cooldown system.
+/// </summary>
 public class Hazard : MonoBehaviour, IHazardComponent
 {
-    [Header("Hazard")]
-    public string hazardId = "H-001";
-    public bool isCorrectHazard = true;
+    [Header("Hazard Configuration")]
+    [SerializeField] private string hazardId = "H-001";
+    [SerializeField] private bool isCorrectHazard = true;
+    [SerializeField] private int points = 10;
 
-    [Header("Scoring")]
-    public int pointsIfCorrect = 10;
-    public int penaltyIfWrong = 5;
+    [Header("Visual Feedback")]
+    [SerializeField] private Renderer targetRenderer;
 
-    [Header("Visual feedback (optional)")]
-    public Renderer targetRenderer;
+    [Header("Timing")]
+    [SerializeField] private float cooldownSeconds = 1f;
 
-    [Header("Dependencies")]
-    [SerializeField] private TrainingScenarioController scenarioController;
-
-    private bool _marked;
-    private int  _attempts;
+    private TrainingStateMachine _stateMachine;
+    private bool _marked = false;
+    private float _lastMarkTime = float.MinValue;
     private MaterialPropertyBlock _propertyBlock;
 
     public string HazardId => hazardId;
@@ -25,18 +31,7 @@ public class Hazard : MonoBehaviour, IHazardComponent
 
     private void Awake()
     {
-        // Finn controller hvis ikke satt i Inspector
-        if (scenarioController == null)
-            scenarioController = FindFirstObjectByType<TrainingScenarioController>();
-
-        if (scenarioController == null)
-        {
-            Debug.LogError($"[Hazard] {hazardId}: Ingen TrainingScenarioController funnet!", this);
-            enabled = false;
-            return;
-        }
-
-        scenarioController.RegisterHazard(this);
+        _stateMachine = FindFirstObjectByType<TrainingStateMachine>();
 
         if (targetRenderer == null)
             targetRenderer = GetComponentInChildren<Renderer>();
@@ -44,42 +39,38 @@ public class Hazard : MonoBehaviour, IHazardComponent
         _propertyBlock = new MaterialPropertyBlock();
     }
 
-    // Denne kan du kalle fra XR "Select Entered" i Inspector
+    /// <summary>
+    /// Called when the player interacts with this hazard.
+    /// Publishes a HAZARD_MARKED event to the backend.
+    /// </summary>
     public void Mark()
     {
         if (_marked) return;
-        if (scenarioController == null) return;
+        if (_stateMachine == null) return;
+        if (!_stateMachine.IsActive) return;
 
-        if (scenarioController.StateMachine.CurrentState != TrainingStateMachine.TrainingState.IdentifyHazards)
-            return;
+        // Anti-spam cooldown
+        if (Time.time - _lastMarkTime < cooldownSeconds) return;
 
-        _attempts++;
         _marked = true;
+        _lastMarkTime = Time.time;
 
-        if (isCorrectHazard)
-        {
-            float timeToFind = Time.time - scenarioController.StartTime;
-            scenarioController.ScoreManager.AddPoints(pointsIfCorrect, "Correct hazard identified", hazardId);
-            scenarioController.EventLogger.LogHazardMarked(hazardId, true, pointsIfCorrect);
-            scenarioController.NotifyHazardFound(hazardId, _attempts, timeToFind);
-            TrainingEvents.RaiseHazardMarked(hazardId, true, pointsIfCorrect);
-            SetColor(Color.green);
-        }
-        else
-        {
-            scenarioController.ScoreManager.DeductPoints(penaltyIfWrong, "Incorrect hazard marked", hazardId);
-            scenarioController.EventLogger.LogHazardMarked(hazardId, false, -penaltyIfWrong);
-            scenarioController.NotifyIncorrectAttempt();
-            TrainingEvents.RaiseHazardMarked(hazardId, false, -penaltyIfWrong);
-            SetColor(Color.red);
-        }
+        // Publish to backend (positive for correct, negative for wrong)
+        int pointValue = isCorrectHazard ? points : -points;
+        EventService.Instance?.PublishHazardMarked(hazardId, isCorrectHazard, pointValue);
+
+        // Visual feedback
+        SetColor(isCorrectHazard ? Color.green : Color.red);
+
+        #if UNITY_EDITOR
+        Debug.Log($"[Hazard] {hazardId} marked ({(isCorrectHazard ? "correct" : "incorrect")})");
+        #endif
     }
 
     private void SetColor(Color c)
     {
         if (targetRenderer == null) return;
 
-        // Bruk MaterialPropertyBlock for å unngå material-instansiering
         targetRenderer.GetPropertyBlock(_propertyBlock);
         _propertyBlock.SetColor("_Color", c);
         targetRenderer.SetPropertyBlock(_propertyBlock);
@@ -88,6 +79,7 @@ public class Hazard : MonoBehaviour, IHazardComponent
     public void Reset()
     {
         _marked = false;
+        _lastMarkTime = float.MinValue;
         SetColor(Color.white);
     }
 }

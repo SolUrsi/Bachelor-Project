@@ -3,8 +3,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Holds session-scoped identity data that is stamped on every event header.
-/// Created by TrainingScenarioController at scenario start and passed to EventPublisher.
-/// Plain C# class â€“ no MonoBehaviour needed, no scene lifecycle concerns.
+/// Plain C# class – no MonoBehaviour needed, no scene lifecycle concerns.
 /// </summary>
 public class SessionContext
 {

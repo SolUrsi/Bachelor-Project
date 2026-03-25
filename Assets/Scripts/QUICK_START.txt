@@ -1,0 +1,681 @@
+MQTT TRAINING SYSTEM - QUICK START GUIDE
+=========================================
+
+INSTALLATION AND SETUP
+======================
+
+STEP 1: Install MQTTnet Library
+-------------------------------
+
+Option A - NuGet (Recommended):
+  1. Tools menu -> NuGet Package Manager -> Package Manager Console
+  2. Run command: Install-Package MQTTnet
+  3. Wait for installation to complete (DLL goes to Assets/Plugins/)
+  4. Restart Unity Editor
+
+Option B - Manual:
+  1. Download from https://www.nuget.org/packages/MQTTnet/
+  2. Extract and place MQTTnet.dll in Assets/Plugins/
+  3. Select file in Inspector and set: CPU = Any, OS = Any
+
+
+STEP 2: Set Up Main Scene (Infrastructure)
+-------------------------------------------
+
+Main scene: Loads first, persists entire lifetime, contains core services
+
+Create Main scene:
+  1. File -> New Scene
+  2. Save as "Main"
+  3. File -> Build Settings -> Add current scene
+  4. Ensure Main is FIRST in scenes list
+
+Add MQTT infrastructure:
+  1. GameObject (empty) -> Name: "MqttManager"
+  2. Add Component: MqttApplicationManager
+     Inspector settings:
+     - Broker Host: YOUR_VPS_IP (e.g., 157.245.79.217)
+     - Broker Port: 1883
+     - Keep other defaults
+  3. Add Component: MqttEventPublisher
+     (No config needed, uses defaults)
+
+Add event services:
+  1. GameObject (empty) -> Name: "CoreServices"
+  2. Add Component: EventService
+  3. Add Component: ScoreResponseHandler
+     (No config needed)
+
+Save scene
+
+
+STEP 3: Set Up Training Scene (Game Logic)
+-------------------------------------------
+
+Training scene: Contains game logic, hazards, triggers, UI
+
+Create Training scene:
+  1. File -> New Scene
+  2. Save as "Training"
+  3. File -> Build Settings -> Add current scene
+  4. Should be SECOND in scenes list
+
+Add training infrastructure:
+  1. GameObject (empty) -> Name: "TrainingManager"
+  2. Add Component: TrainingScenarioController
+  3. Add Component: TrainingStateMachine
+  4. In TrainingScenarioController inspector:
+     - Drag TrainingStateMachine into "State Machine" field
+
+Add session manager:
+  1. GameObject (empty) -> Name: "SessionManager"
+  2. Add Component: TrainingSessionManager
+     Inspector settings:
+     - Scenario ID: "SCENARIO-001"
+     - Scenario Name: "HMS Grunnleggende"
+
+Add UI:
+  1. Create Canvas (if not exists)
+  2. Create TextMeshPro text element for score display
+     - Rename to "ScoreDisplay"
+     - Position where you want final score shown
+  3. Add Component to Canvas: TrainingUIManager
+  4. In TrainingUIManager inspector:
+     - Drag ScoreDisplay TextMeshProUGUI into "Score Text" field
+
+Save scene
+
+
+STEP 4: Create Hazard Objects
+------------------------------
+
+For each hazard (e.g., exposed cable, missing guard):
+
+  1. Create empty GameObject (e.g., "Hazard_Panel_01")
+  2. Add child: 3D mesh or sprite for visual representation
+  3. Add Component: Box Collider
+     - Position/size to surround hazard
+     - Set "Is Trigger" to FALSE
+  4. Add Component: Hazard
+     Inspector settings:
+     - Hazard ID: "H-001" (unique per hazard)
+     - Is Correct Hazard: true (mark as correct)
+     - Points: 10 (points awarded when marked)
+     - Target Renderer: Auto-found from mesh child
+     - Cooldown Seconds: 1.0
+
+Wire interaction (pick ONE):
+  
+  Option A - VR Hand Interaction:
+    1. Add Component: XR Grab Interactable
+    2. In On Select Entered event:
+       - Click "+"
+       - Drag the Hazard GameObject (same object)
+       - Select: Hazard -> Mark()
+  
+  Option B - UI Button:
+    1. Create Button UI element
+    2. In Button component, On Click:
+       - Click "+"
+       - Drag this Hazard GameObject
+       - Select: Hazard -> Mark()
+
+
+STEP 5: Create Trigger Zones
+-----------------------------
+
+For each unsafe zone (e.g., high voltage area, restricted zone):
+
+  1. Create empty GameObject (e.g., "Zone_HighVoltage")
+  2. Add child: Semi-transparent red cube for visual
+  3. Add Component: Box Collider
+     - Position/size to cover the zone
+     - Set "Is Trigger" to TRUE
+     - Check "Auto-Configure Collider" if needed
+  4. Add Component: Rigidbody
+     - Set "Is Kinematic" to TRUE
+     - Leave gravity unchecked
+  5. Add Component: HazardTrigger
+     Inspector settings:
+     - Trigger ID: "T-001" (unique per trigger)
+     - Description: "High voltage equipment" (penalty reason)
+     - Penalty Points: 15 (points deducted)
+     - Only Once: true (fires once per scenario)
+     - Cooldown Seconds: 1.0
+     - Required Tag: "" (or set to "Player" for tag filtering)
+
+
+STEP 6: Wire Up UI Buttons
+---------------------------
+
+Create START button:
+  1. Create Button UI element, name "StartButton"
+  2. In Button component, On Click section:
+     - Click "+"
+     - Drag TrainingManager GameObject
+     - Select: TrainingScenarioController -> StartScenario()
+
+Create END button:
+  1. Create Button UI element, name "EndButton"
+  2. In Button component, On Click section:
+     - Click "+"
+     - Drag TrainingManager GameObject
+     - Select: TrainingScenarioController -> EndScenario()
+
+Create RESET button (optional):
+  1. Create Button UI element, name "ResetButton"
+  2. In Button component, On Click section:
+     - Click "+"
+     - Drag TrainingManager GameObject
+     - Select: TrainingScenarioController -> ResetScenario()
+
+
+STEP 7: Configure Broker Connection
+------------------------------------
+
+In Main scene:
+
+  1. Select MqttManager GameObject
+  2. Expand MqttApplicationManager component
+  3. Set "Broker Host" to your VPS IP address
+     (Example: 157.245.79.217)
+  4. Set "Broker Port" to 1883
+  5. Leave topic names at defaults
+  6. Save scene
+
+Test connection:
+  1. Press Play in Unity
+  2. Watch Console window
+  3. Should see messages:
+     [MQTT] Application manager initialized (Client ID: traftec-vr-xxx)
+     [MQTT] Connected to YOUR_IP:1883
+  4. If connection fails:
+     - Verify IP address is correct
+     - Check firewall allows port 1883 outbound
+     - Verify MQTT broker is running on VPS
+
+
+STEP 8: Test In Editor
+----------------------
+
+Preparation:
+  1. Open Main scene
+  2. File -> Open Scene as Additive -> Load Training scene
+  3. In Hierarchy, both Main and Training scenes should show
+
+Test startup:
+  1. Press Play
+  2. Watch Console for:
+     [MQTT] Connected to [ip]:1883
+     [SessionManager] Session initialized: [id]
+
+Test scenario start:
+  1. Click START button in game
+  2. Watch Console:
+     [EventService] Published SESSION_START: HMS Grunnleggende
+     [MQTT] Published to 'events/'
+
+Test hazard marking:
+  1. Interact with/click a hazard
+  2. Watch Console:
+     [Hazard] H-001 marked (correct)
+     [EventService] Published HAZARD_MARKED: H-001
+     [MQTT] Published to 'events/'
+  3. Hazard should change color (green for correct, red for wrong)
+
+Test trigger zones:
+  1. Move player collider into trigger zone
+  2. Watch Console:
+     [HazardTrigger] T-001 fired
+     [EventService] Published HSE_ALERT: T-001
+     [MQTT] Published to 'events/'
+
+Test scenario end:
+  1. Click END button
+  2. Watch Console:
+     [EventService] Published SESSION_END (duration: X.Xs)
+     [EventService] Requested final score
+     [MQTT] Published to 'request/points'
+  3. If backend connected, wait for response:
+     [ScoreResponseHandler] Received score: session=xxx, score=145
+     UI should display: "Final Score: 145"
+
+
+GAMEPLAY FLOW - HOW IT WORKS
+============================
+
+Player Starts Scenario:
+  - Clicks START button
+  - TrainingScenarioController.StartScenario() called
+  - State changes to Active
+  - SESSION_START event publishes to backend
+
+During Gameplay:
+  - Player identifies hazards
+  - Hazard.Mark() publishes HAZARD_MARKED event (points awarded)
+  - Player violates safety (enters trigger zone)
+  - HazardTrigger fires, publishes HSE_ALERT_EVENT (penalty applied)
+  - All events sent asynchronously to MQTT broker
+
+Backend Processing:
+  - Backend receives all events
+  - Backend calculates running score from events
+  - Events stored in database
+
+Player Ends Scenario:
+  - Clicks END button
+  - TrainingScenarioController.EndScenario() called
+  - State changes to Ended
+  - SESSION_END event publishes
+  - SCORE_REQUEST sent to backend
+
+Score Response:
+  - Backend receives SCORE_REQUEST
+  - Backend calculates final score
+  - Backend publishes to response/points topic
+  - TrainingUIManager displays final score
+
+Player Resets:
+  - Clicks RESET button
+  - New Session ID generated
+  - All components reset
+  - Ready for new scenario
+
+
+CODE ARCHITECTURE - HOW COMPONENTS CONNECT
+===========================================
+
+Data Flow Simplified:
+
+Game Action
+  |
+  v
+Game Component (Hazard/HazardTrigger/etc)
+  |
+  | Calls EventService.PublishXxx()
+  |
+  v
+EventService
+  | Builds TrainingEvent with context
+  | Calls MqttEventPublisher
+  |
+  v
+MqttEventPublisher
+  | Serializes to JSON
+  | Calls MqttApplicationManager.Publish()
+  |
+  v
+MqttApplicationManager
+  | Queues message
+  | Background thread sends to broker
+  |
+  v
+MQTT Broker
+  | Routes to backend subscribers
+  |
+  v
+Backend System
+  | Receives events
+  | Calculates score
+  | Publishes response to response/points
+
+
+Response Flow:
+
+Backend publishes score to response/points
+  |
+  v
+MQTT Broker
+  |
+  v
+MqttApplicationManager receives on background thread
+  | Enqueues to message queue
+  | Main thread Update() dequeues
+  | Fires OnMessageReceived event
+  |
+  v
+ScoreResponseHandler
+  | Listens for message on response/points
+  | Parses JSON to ScoreResponseMessage
+  | Fires OnScoreReceived event
+  |
+  v
+TrainingUIManager
+  | Receives OnScoreReceived event
+  | Updates score display on UI
+
+
+COMPONENT DESCRIPTIONS
+======================
+
+Core Infrastructure (Main Scene):
+
+MqttApplicationManager
+  - Singleton managing MQTT broker connection
+  - Runs with DefaultExecutionOrder -100 (starts first)
+  - Maintains single connection for entire app lifetime
+  - Background thread handles network I/O
+  - Non-blocking; never stalls main thread
+  - Auto-reconnects on network failure
+
+EventService
+  - Singleton providing event publishing API
+  - High-level interface for game code
+  - Builds TrainingEvent with headers and metadata
+  - Does not know about MQTT details
+  - Resolves session manager for context
+
+ScoreResponseHandler
+  - Listens to MQTT messages on response/points topic
+  - Parses JSON to ScoreResponseMessage
+  - Fires OnScoreReceived event for UI subscription
+
+MqttEventPublisher
+  - Serializes TrainingEvent objects to JSON
+  - Publishes via MqttApplicationManager
+  - Handles both events and score requests
+
+
+Game Logic (Training Scene):
+
+TrainingScenarioController
+  - Coordinates scenario lifecycle (start, end, reset)
+  - Triggers event publishing at key points
+  - Tracks scenario duration
+  - Manages state machine
+
+TrainingStateMachine
+  - Three-state machine: NotStarted -> Active -> Ended
+  - Prevents events outside Active state
+  - Simple state tracking (no event publishing)
+
+TrainingSessionManager
+  - Generates unique Session ID per run
+  - Provides scenario ID and name
+  - Implements ISessionManager interface
+  - Found by EventService for context
+
+Hazard
+  - Publishes HAZARD_MARKED when player marks it
+  - One-shot marking (cannot mark twice)
+  - Anti-spam cooldown
+  - Visual feedback (color change)
+
+HazardTrigger
+  - Publishes HSE_ALERT_EVENT when player enters zone
+  - Optional one-time firing
+  - Anti-spam cooldown
+  - Tag filtering support
+
+TrainingUIManager
+  - Displays final score from backend
+  - Shows feedback messages
+  - UI is read-only (receives only)
+  - Subscribes to ScoreResponseHandler
+
+
+COMMON TASKS
+============
+
+Publish a hazard marking event:
+  EventService.Instance?.PublishHazardMarked("H-001", true, 10);
+
+Publish a safety violation:
+  EventService.Instance?.PublishHseAlert("T-001", "Unsafe zone", 15);
+
+Publish custom interaction:
+  EventService.Instance?.PublishActionInteract(
+    "object_01", "action_name", "tool_used", true
+  );
+
+Request final score:
+  EventService.Instance?.RequestFinalScore();
+
+Listen to score response:
+  private void OnEnable()
+  {
+    ScoreResponseHandler.OnScoreReceived += HandleScore;
+  }
+  
+  private void OnDisable()
+  {
+    ScoreResponseHandler.OnScoreReceived -= HandleScore;
+  }
+  
+  private void HandleScore(string sessionId, int finalScore)
+  {
+    Debug.Log($"Score: {finalScore}");
+  }
+
+Check if MQTT connected:
+  bool connected = MqttApplicationManager.Instance?.IsConnected ?? false;
+
+
+FOLDER STRUCTURE
+================
+
+Assets/Scripts/Core/
+  MQTT/
+    MqttApplicationManager.cs - Broker connection manager
+    MqttEventPublisher.cs - Event serialization
+  
+  Events/
+    EventService.cs - Event publishing API
+    EventModel.cs - Serializable event classes
+    ScoreResponseHandler.cs - Response listener
+  
+  Session/
+    TrainingSessionManager.cs - Session manager
+    SessionContext.cs - Session data
+
+Assets/Scripts/Training/
+  TrainingScenarioController.cs - Lifecycle coordinator
+  TrainingStateMachine.cs - 3-state machine
+  TrainingUIManager.cs - UI handler
+  Hazard.cs - Hazard component
+  HazardTrigger.cs - Trigger component
+  IXRInteractable.cs - Interaction interface
+  IHazardComponent.cs - Hazard interface
+
+
+EVENT TYPES
+===========
+
+SESSION_START
+  Published: When scenario begins
+  Contains: Scenario name
+  Purpose: Backend creates session record
+
+SESSION_END
+  Published: When scenario ends
+  Contains: Duration in seconds
+  Purpose: Backend knows session completed
+
+HAZARD_MARKED
+  Published: When player marks a hazard
+  Contains: Hazard ID, correct/incorrect, points
+  Purpose: Backend records hazard identification
+
+HSE_ALERT_EVENT
+  Published: When player enters unsafe zone
+  Contains: Trigger ID, description, penalty
+  Purpose: Backend records safety violation
+
+ACTION_INTERACT
+  Published: When player interacts with object
+  Contains: Object ID, action, tool, success status
+  Purpose: Backend records player interaction
+
+SCORE_REQUEST (to backend)
+  Published: When scenario ends
+  Contains: Session ID
+  Response: Backend sends score response
+
+SCORE_RESPONSE (from backend)
+  Received: After SCORE_REQUEST
+  Contains: Session ID, final score
+  Purpose: UI displays authoritative score
+
+
+TROUBLESHOOTING GUIDE
+=====================
+
+No MQTT logs in console:
+  - Add MqttApplicationManager to Main scene
+  - Verify MQTTnet.dll in Assets/Plugins/
+  - Check script compiles (no errors)
+  - Restart Unity Editor
+
+Cannot connect to broker:
+  - Verify Broker Host IP is correct
+  - Check firewall allows port 1883 outbound
+  - Test: telnet your_ip 1883 from command line
+  - Verify broker is running on VPS
+
+Events not publishing:
+  - Check MQTT Connected log in console
+  - Verify game state is Active (not NotStarted)
+  - Check EventService.Instance is not null
+  - Verify MqttEventPublisher in scene
+
+Score not received:
+  - Check backend is connected to broker
+  - Verify backend publishes to response/points
+  - Check JSON format matches ScoreResponseMessage
+  - Monitor response/points topic on broker
+
+Hazard firing multiple times:
+  - Increase Hazard cooldownSeconds to 2.0
+  - Check collider bounds not overlapping
+  - Verify XR input fires once per interaction
+
+Trigger firing continuously:
+  - Set HazardTrigger.Only Once to true
+  - Increase cooldownSeconds to 2.0
+  - Check Is Trigger = true on collider
+  - Check Rigidbody Is Kinematic = true
+
+Missing ISessionManager warning:
+  - Add TrainingSessionManager to Training scene
+  - Check EventService.Start() finds it
+  - May need to adjust component execution order
+
+
+WHAT'S NEXT?
+============
+
+1. Verify MQTTnet.dll is in Assets/Plugins/
+2. Create Main scene with infrastructure
+3. Create Training scene with game logic
+4. Add your hazards and trigger zones
+5. Wire up buttons to StartScenario/EndScenario
+6. Test in editor (check console logs)
+7. Connect backend to MQTT broker
+8. Test end-to-end event flow
+9. Verify final score displays correctly
+10. Adjust points and penalties as needed
+
+
+REFERENCE
+=========
+
+For detailed architecture information, see: ARCHITECTURE_AND_SETUP.txt
+
+Key classes:
+  - MqttApplicationManager: MQTT connection handler
+  - EventService: Event publishing API
+  - TrainingScenarioController: Scenario lifecycle
+  - TrainingStateMachine: State tracking
+  - Hazard: Hazard marking
+  - HazardTrigger: Safety violation detection
+
+Key interfaces:
+  - ISessionManager: Session context provider
+  - IMqttEventPublisher: MQTT event publisher
+  - IXRInteractable: Custom interactive objects
+  - IHazardComponent: Hazard-like components
+
+
+SYSTEM BENEFITS
+===============
+
+Persistent Connection:
+  - One MQTT connection for entire app lifetime
+  - No connect/disconnect overhead per scene
+
+Asynchronous:
+  - Never blocks main thread
+  - Smooth gameplay, no stalls
+
+Automatic Reconnection:
+  - Handles network failures gracefully
+  - Exponential backoff prevents broker spam
+
+Clean API:
+  - EventService provides simple interface
+  - Game code doesn't know about MQTT details
+
+Authoritative Backend Scoring:
+  - No local score calculation errors
+  - Events are immutable records
+  - Backend maintains source of truth
+
+Thread-Safe:
+  - ConcurrentQueues prevent race conditions
+  - Main thread safely processes background messages
+
+Extensible:
+  - Easy to add new event types
+  - Interfaces allow custom implementations
+  - Clean separation of concerns
+
+
+QUICK REFERENCE - INSPECTOR SETTINGS
+====================================
+
+MqttApplicationManager:
+  Broker Host: Your VPS IP
+  Broker Port: 1883
+  Connection Timeout Ms: 5000
+  Reconnect Delay Ms: 5000
+  Topic Event Publish: events/
+  Topic Score Request: request/points
+  Topic Score Response: response/points
+
+TrainingSessionManager:
+  Scenario ID: SCENARIO-001
+  Scenario Name: HMS Grunnleggende
+
+Hazard (per hazard object):
+  Hazard ID: H-001, H-002, etc.
+  Is Correct Hazard: true or false
+  Points: 5-20 (points awarded)
+  Cooldown Seconds: 1.0
+
+HazardTrigger (per trigger zone):
+  Trigger ID: T-001, T-002, etc.
+  Description: Zone description
+  Penalty Points: 10-30 (points deducted)
+  Only Once: true for one-time, false for repeating
+  Cooldown Seconds: 1.0
+
+TrainingUIManager:
+  Score Text: Drag ScoreDisplay TextMeshPro
+  State Text: Optional
+  Feedback Panel: Optional
+  Feedback Text: Optional
+
+
+SUPPORT
+=======
+
+Check these in order if having issues:
+
+1. Console logs - look for MQTT prefix messages
+2. MqttApplicationManager connection status
+3. Backend logs on VPS
+4. MQTT broker logs for subscriptions/publishes
+5. JSON payload format matches event classes
+6. Scene setup matches instructions
+
+For complete details, see: ARCHITECTURE_AND_SETUP.txt
